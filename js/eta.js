@@ -8,29 +8,46 @@ const ETAModule = (() => {
    * Returns: { eta, distance, delta, deltaClass, timelinePoints, directionSteps }
    */
   function formatRouteDisplay(routeWeather, route, departureTime) {
-    const { adjustedDuration, baselineDuration, timeline, worstCondition } = routeWeather;
+    const {
+      adjustedDuration, weatherAdjustedDuration, baselineDuration,
+      trafficMultiplier, timeline, worstCondition,
+    } = routeWeather;
 
-    // Format main ETA
+    // Format main ETA (weather + traffic combined)
     const eta = Utils.formatDuration(adjustedDuration);
     const distance = Utils.formatDistance(route.distance);
 
-    // Weather delta
-    const deltaSec = adjustedDuration - baselineDuration;
+    // Separate traffic and weather contributions
+    const trafficDelaySec  = weatherAdjustedDuration
+      ? weatherAdjustedDuration * (trafficMultiplier - 1)
+      : (adjustedDuration - baselineDuration);
+    const weatherDelaySec  = weatherAdjustedDuration
+      ? weatherAdjustedDuration - baselineDuration
+      : 0;
+
     let delta = null;
     let deltaClass = 'clear';
+    const parts = [];
 
-    if (deltaSec > 30) {
-      const deltaFormatted = Utils.formatDuration(deltaSec);
-      const reason = worstCondition ? worstCondition.label.toLowerCase() : 'weather';
-      delta = `+${deltaFormatted} due to ${reason}`;
+    if (trafficDelaySec > 60) {
+      parts.push(`+${Utils.formatDuration(trafficDelaySec)} traffic`);
+    }
 
-      if (worstCondition) {
-        if (worstCondition.cssClass === 'snow') deltaClass = 'snow';
-        else if (worstCondition.speedFactor < 0.8) deltaClass = 'rain';
-        else deltaClass = 'rain';
-      }
+    if (weatherDelaySec > 30 && worstCondition) {
+      parts.push(`+${Utils.formatDuration(weatherDelaySec)} ${worstCondition.label.toLowerCase()}`);
+      if (worstCondition.cssClass === 'snow') deltaClass = 'snow';
+      else if (worstCondition.speedFactor < 0.8) deltaClass = 'rain';
+      else deltaClass = 'rain';
+    }
+
+    if (parts.length > 0) {
+      delta = parts.join('  ·  ');
+      if (deltaClass === 'clear' && trafficDelaySec > 60) deltaClass = 'rain';
     } else {
-      delta = 'Clear conditions along route';
+      const trafficLabel = trafficMultiplier > 1.05
+        ? `Light traffic (+${Math.round((trafficMultiplier - 1) * 100)}%)`
+        : 'No delays expected';
+      delta = trafficLabel;
       deltaClass = 'clear';
     }
 

@@ -28,9 +28,12 @@ const RouteWeather = (() => {
     const samplePoints = Utils.samplePointsAlongRoute(routeCoords, interval);
 
     if (samplePoints.length < 2) {
+      const trafficMultiplier = Utils.getTrafficMultiplier(departureTime);
       return {
         timeline: [],
-        adjustedDuration: baseDuration,
+        adjustedDuration: baseDuration * trafficMultiplier,
+        weatherAdjustedDuration: baseDuration,
+        trafficMultiplier,
         baselineDuration: baseDuration,
         segments: [{ coords: routeCoords, color: '#4caf50' }],
         worstCondition: null,
@@ -43,9 +46,12 @@ const RouteWeather = (() => {
       weatherData = await WeatherModule.fetchWeatherForPoints(samplePoints);
     } catch (err) {
       console.warn('Weather fetch failed:', err);
+      const trafficMultiplier = Utils.getTrafficMultiplier(departureTime);
       return {
         timeline: [],
-        adjustedDuration: baseDuration,
+        adjustedDuration: baseDuration * trafficMultiplier,
+        weatherAdjustedDuration: baseDuration,
+        trafficMultiplier,
         baselineDuration: baseDuration,
         segments: [{ coords: routeCoords, color: '#4caf50' }],
         worstCondition: null,
@@ -63,7 +69,11 @@ const RouteWeather = (() => {
     const pass2Timeline = computePass(samplePoints, weatherData, baseSpeed, departMs, baseDistance, pass1Timeline);
 
     // 5. Build final result
-    const adjustedDuration = pass2Timeline.reduce((sum, pt) => sum + pt.adjustedSegDuration, 0);
+    const weatherAdjustedDuration = pass2Timeline.reduce((sum, pt) => sum + pt.adjustedSegDuration, 0);
+
+    // Apply time-of-day traffic multiplier on top of weather adjustment
+    const trafficMultiplier = Utils.getTrafficMultiplier(departureTime);
+    const totalAdjustedDuration = weatherAdjustedDuration * trafficMultiplier;
 
     // Build color-coded route segments
     const segments = buildColorSegments(routeCoords, samplePoints, pass2Timeline, baseDistance);
@@ -80,7 +90,9 @@ const RouteWeather = (() => {
 
     return {
       timeline: pass2Timeline,
-      adjustedDuration,
+      adjustedDuration: totalAdjustedDuration,
+      weatherAdjustedDuration,
+      trafficMultiplier,
       baselineDuration: baseDuration,
       segments,
       worstCondition,

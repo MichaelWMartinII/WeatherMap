@@ -141,6 +141,32 @@ const Utils = (() => {
   }
 
   /**
+   * Estimate a traffic speed multiplier based on time-of-day and day-of-week.
+   * Returns a value >= 1.0 (1.0 = no delay, 1.35 = 35% longer travel time).
+   * This is a heuristic for when real traffic data isn't available.
+   */
+  function getTrafficMultiplier(departureTime) {
+    if (!(departureTime instanceof Date)) return 1.0;
+    const hour = departureTime.getHours();
+    const day  = departureTime.getDay(); // 0=Sun, 6=Sat
+    const isWeekend = day === 0 || day === 6;
+
+    if (isWeekend) {
+      if (hour >= 10 && hour < 19) return 1.12; // Weekend midday
+      return 1.0;
+    }
+
+    // Weekday
+    if (hour >= 7  && hour < 9)  return 1.30; // AM rush
+    if (hour >= 9  && hour < 11) return 1.12; // Post-rush
+    if (hour >= 11 && hour < 14) return 1.07; // Midday
+    if (hour >= 14 && hour < 16) return 1.12; // Pre-PM rush
+    if (hour >= 16 && hour < 19) return 1.38; // PM rush
+    if (hour >= 19 && hour < 21) return 1.10; // Evening
+    return 1.0;                               // Late night / early morning
+  }
+
+  /**
    * Clamp a number between min and max
    */
   function clamp(val, min, max) {
@@ -157,5 +183,6 @@ const Utils = (() => {
     formatTime,
     clamp,
     setUnits,
+    getTrafficMultiplier,
   };
 })();
