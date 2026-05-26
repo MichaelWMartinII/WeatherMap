@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#1a1a2e">
+  <meta name="theme-color" content="#0f1923">
   <title>WeatherMap</title>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -13,121 +13,174 @@
   <link rel="stylesheet" href="css/main.css">
 </head>
 <body>
-  <!-- Map fills entire viewport -->
+
+  <!-- Map -->
   <div id="map"></div>
 
-  <!-- Top bar controls -->
-  <div id="top-bar">
-    <button id="btn-menu" aria-label="Menu">&#9776;</button>
-    <div id="top-bar-title">WeatherMap</div>
-    <div id="top-bar-actions">
-      <button id="btn-radar" aria-label="Toggle radar" title="Weather radar">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10"/>
-          <circle cx="12" cy="12" r="6"/>
-          <circle cx="12" cy="12" r="2"/>
-          <line x1="12" y1="2" x2="12" y2="6"/>
-        </svg>
-      </button>
-      <button id="btn-locate" aria-label="My location" title="My location">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="4"/>
-          <line x1="12" y1="2" x2="12" y2="6"/>
-          <line x1="12" y1="18" x2="12" y2="22"/>
-          <line x1="2" y1="12" x2="6" y2="12"/>
-          <line x1="18" y1="12" x2="22" y2="12"/>
-        </svg>
-      </button>
+  <!-- ── Navigation mode bar (top) ── -->
+  <div id="nav-bar" class="hidden">
+    <div id="nav-turn-icon"></div>
+    <div id="nav-turn-info">
+      <div id="nav-turn-distance"></div>
+      <div id="nav-turn-instruction"></div>
     </div>
+    <button id="btn-end-nav" aria-label="End navigation">✕</button>
   </div>
 
-  <!-- Radar controls overlay -->
+  <!-- ── Search bar (top) ── -->
+  <div id="search-bar">
+    <div id="search-input-wrap">
+      <svg class="search-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <circle cx="7" cy="7" r="5"/><line x1="11" y1="11" x2="14.5" y2="14.5"/>
+      </svg>
+      <input id="input-to" type="text" placeholder="Where to?" autocomplete="off" spellcheck="false">
+      <button id="btn-search-clear" class="hidden">&times;</button>
+    </div>
+    <button id="btn-locate" class="icon-btn" aria-label="My location">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <circle cx="12" cy="12" r="4"/>
+        <line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/>
+        <line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>
+      </svg>
+    </button>
+    <button id="btn-radar" class="icon-btn" aria-label="Radar">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6a6 6 0 1 0 6 6"/>
+        <circle cx="12" cy="12" r="2"/><line x1="12" y1="2" x2="12" y2="6"/>
+      </svg>
+    </button>
+    <button id="btn-share" class="icon-btn" aria-label="Share location">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+      </svg>
+    </button>
+    <button id="btn-settings" class="icon-btn" aria-label="Settings">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06-.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- ── Live tracking banner ── -->
+  <div id="tracking-banner" class="hidden">
+    <span id="tracking-pulse"></span>
+    <span id="tracking-label">Viewing live location</span>
+    <button id="btn-stop-tracking">&times;</button>
+  </div>
+
+  <!-- ── Search dropdown ── -->
+  <div id="search-dropdown" class="hidden">
+    <div id="from-row">
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="var(--blue)"><circle cx="5" cy="5" r="4"/></svg>
+      <span id="from-label">Current location</span>
+      <button id="btn-change-from">Change</button>
+    </div>
+    <div id="from-edit-row" class="hidden">
+      <input id="input-from" type="text" placeholder="Starting point" autocomplete="off" spellcheck="false">
+    </div>
+    <div id="search-results"></div>
+  </div>
+
+  <!-- ── Radar controls ── -->
   <div id="radar-controls" class="hidden">
-    <button id="radar-play-pause" aria-label="Play/Pause">&#9654;</button>
+    <button id="radar-play-pause" aria-label="Play/Pause">
+      <svg id="radar-icon-play" width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><polygon points="3,1 11,6 3,11"/></svg>
+      <svg id="radar-icon-pause" width="12" height="12" viewBox="0 0 12 12" fill="currentColor" class="hidden"><rect x="2" y="1" width="3" height="10"/><rect x="7" y="1" width="3" height="10"/></svg>
+    </button>
     <input id="radar-slider" type="range" min="0" max="0" value="0">
     <span id="radar-time"></span>
   </div>
 
-  <!-- Bottom sheet -->
-  <div id="bottom-sheet">
+  <!-- ── Bottom sheet ── -->
+  <div id="sheet" class="hidden">
     <div id="sheet-handle"><div id="sheet-handle-bar"></div></div>
 
     <div id="sheet-content">
-      <!-- Search section -->
-      <div id="search-section">
-        <div class="search-field">
-          <label for="input-from">From</label>
-          <input id="input-from" type="text" placeholder="Current location" autocomplete="off">
-          <button class="clear-btn hidden" data-target="input-from">&times;</button>
+      <!-- Compact peek: always visible when sheet is up -->
+      <div id="sheet-peek">
+        <div id="route-summary">
+          <span id="route-eta"></span>
+          <span id="route-distance"></span>
         </div>
-        <div class="search-field">
-          <label for="input-to">To</label>
-          <input id="input-to" type="text" placeholder="Search destination" autocomplete="off">
-          <button class="clear-btn hidden" data-target="input-to">&times;</button>
+        <div id="sheet-peek-actions">
+          <button id="btn-start-nav" class="nav-btn">Go</button>
+          <button id="btn-clear-route" class="clear-btn" aria-label="Clear">✕</button>
         </div>
-        <div id="search-results" class="hidden"></div>
       </div>
 
-      <!-- Route info panel -->
-      <div id="route-panel" class="hidden">
-        <div id="route-summary">
-          <div id="route-eta"></div>
-          <div id="route-distance"></div>
-        </div>
-        <div id="weather-delta"></div>
+      <div id="weather-delta"></div>
 
-        <!-- Departure time -->
-        <div id="departure-section">
-          <label for="departure-time">Depart at:</label>
+      <!-- Expanded content -->
+      <div id="sheet-body">
+        <div id="departure-row">
+          <label for="departure-time">Depart</label>
           <input id="departure-time" type="datetime-local">
           <button id="btn-depart-now">Now</button>
         </div>
 
-        <!-- Weather timeline strip -->
         <div id="weather-timeline"></div>
 
-        <!-- Turn-by-turn directions -->
+        <div id="directions-header">Turn-by-turn</div>
         <div id="directions-list"></div>
-
-        <div id="nav-buttons">
-          <button id="btn-start-nav">Start</button>
-          <button id="btn-clear-route">Clear route</button>
-        </div>
       </div>
     </div>
   </div>
 
-  <!-- Side menu -->
-  <div id="menu-overlay" class="hidden"></div>
-  <div id="side-menu" class="closed">
-    <div id="menu-header">
-      <span id="menu-title">Settings</span>
-      <button id="btn-menu-close" aria-label="Close menu">&times;</button>
+  <!-- ── Settings ── -->
+  <div id="settings-overlay" class="hidden"></div>
+  <div id="settings-panel" class="hidden">
+    <div id="settings-header">
+      <span>Settings</span>
+      <button id="btn-settings-close">&times;</button>
     </div>
-    <div id="menu-body">
-      <div class="menu-section">
-        <div class="menu-section-label">Set Location Manually</div>
-        <div class="menu-row">
-          <input id="menu-location-input" type="text" placeholder="City, address, or zip code" autocomplete="off">
-          <button id="btn-set-location">Set</button>
+    <div class="settings-section">
+      <div class="settings-label">Units</div>
+      <div class="btn-group">
+        <button id="btn-unit-mi" class="unit-btn active">Miles</button>
+        <button id="btn-unit-km" class="unit-btn">Kilometers</button>
+      </div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-label">Saved Places</div>
+      <div class="saved-place-setting">
+        <div class="saved-place-setting-row">
+          <span class="saved-place-setting-icon">🏠</span>
+          <span class="saved-place-setting-name hidden" id="home-name"></span>
+          <span class="saved-place-setting-placeholder" id="home-placeholder">Home</span>
+          <button id="btn-clear-home" class="saved-place-clear-btn hidden">&times;</button>
+        </div>
+        <div class="settings-row">
+          <input id="home-input" type="text" placeholder="Address or place name" autocomplete="off">
+          <button id="btn-set-home">Set</button>
         </div>
       </div>
-      <div class="menu-section">
-        <div class="menu-section-label">Units</div>
-        <div class="menu-row">
-          <button id="btn-unit-mi" class="unit-btn active">Miles</button>
-          <button id="btn-unit-km" class="unit-btn">Kilometers</button>
+      <div class="saved-place-setting">
+        <div class="saved-place-setting-row">
+          <span class="saved-place-setting-icon">💼</span>
+          <span class="saved-place-setting-name hidden" id="work-name"></span>
+          <span class="saved-place-setting-placeholder" id="work-placeholder">Work</span>
+          <button id="btn-clear-work" class="saved-place-clear-btn hidden">&times;</button>
+        </div>
+        <div class="settings-row">
+          <input id="work-input" type="text" placeholder="Address or place name" autocomplete="off">
+          <button id="btn-set-work">Set</button>
         </div>
       </div>
-      <div class="menu-section">
-        <div class="menu-section-label">App</div>
-        <button id="btn-clear-cache" class="menu-action-btn">Clear Cache &amp; Reload</button>
-      </div>
-      <div id="menu-footer">WeatherMap v1.0</div>
     </div>
+    <div class="settings-section">
+      <div class="settings-label">Set origin manually</div>
+      <div class="settings-row">
+        <input id="menu-location-input" type="text" placeholder="City, address, or zip">
+        <button id="btn-set-location">Set</button>
+      </div>
+    </div>
+    <button id="btn-clear-recents" class="danger-btn" style="background:rgba(74,158,255,0.1);color:var(--blue)">Clear Recent Destinations</button>
+    <button id="btn-clear-cache" class="danger-btn">Clear Cache &amp; Reload</button>
   </div>
 
-  <!-- Toast notifications -->
+  <!-- Toast -->
   <div id="toast-container"></div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -141,6 +194,7 @@
   <script src="js/eta.js"></script>
   <script src="js/radar.js"></script>
   <script src="js/ui.js"></script>
+  <script src="js/share.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

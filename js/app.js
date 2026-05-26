@@ -34,15 +34,15 @@ const App = (() => {
         onClear: handleClearRoute,
         onDeparture: handleDepartureChange,
       });
+      UI.setRefreshDisplay(refreshDisplay);
       console.log('[WM] UI ready');
 
       // 4. Wire up top bar buttons
       document.getElementById('btn-radar').addEventListener('click', () => RadarModule.toggle());
       document.getElementById('btn-locate').addEventListener('click', handleLocate);
       document.getElementById('btn-start-nav').addEventListener('click', toggleNavigation);
-
-      // 5. Wire up side menu
-      setupMenu();
+      document.getElementById('btn-share').addEventListener('click', handleShareToggle);
+      document.getElementById('btn-stop-tracking').addEventListener('click', handleStopTracking);
 
       // 6. Tap-on-map to set origin/destination
       setupMapTap(map);
@@ -62,6 +62,13 @@ const App = (() => {
         document.getElementById('input-from').placeholder = 'Tap map or type address';
         UI.toast('Tap the map to set your start and destination', 'info', 5000);
         console.log('[WM] No GPS');
+      }
+
+      // 8. Check for incoming share link (?track=TOKEN)
+      const incomingToken = ShareModule.getIncomingToken();
+      if (incomingToken) {
+        history.replaceState({}, '', location.pathname); // clean URL
+        startTracking(incomingToken);
       }
 
       // 8. Register service worker
@@ -176,9 +183,9 @@ const App = (() => {
       // 6. Format and display
       if (state.routeWeather.weatherUnavailable) {
         UI.updateRouteInfo({
-          eta: Utils.formatDuration(state.route.duration),
+          eta: Utils.formatDuration(state.routeWeather.adjustedDuration),
           distance: Utils.formatDistance(state.route.distance),
-          delta: 'Weather unavailable',
+          delta: `Weather unavailable · traffic est. applied`,
           deltaClass: 'clear',
         });
       } else {
@@ -221,9 +228,9 @@ const App = (() => {
 
       if (state.routeWeather.weatherUnavailable) {
         UI.updateRouteInfo({
-          eta: Utils.formatDuration(state.route.duration),
+          eta: Utils.formatDuration(state.routeWeather.adjustedDuration),
           distance: Utils.formatDistance(state.route.distance),
-          delta: 'Weather unavailable',
+          delta: 'Weather unavailable · traffic est. applied',
           deltaClass: 'clear',
         });
       } else {
@@ -489,54 +496,39 @@ const App = (() => {
   }
 
   function toggleNavigation() {
-    const btn = document.getElementById('btn-start-nav');
     if (state.navigating) {
       // Stop navigation
       state.navigating = false;
       navRecalcTime = 0;
       MapModule.stopFollowing();
-      btn.textContent = 'Start';
-      btn.classList.remove('active');
-      // Zoom back out and restore full route display
+      UI.stopNavMode();
+      // Restore full route display
       if (state.route) {
         MapModule.fitToRoute(state.route.rawCoords, [60, 60]);
         if (state.routeWeather && !state.routeWeather.weatherUnavailable) {
           const display = ETAModule.formatRouteDisplay(state.routeWeather, state.route, state.departureTime);
-          UI.updateRouteInfo({
-            eta: display.eta,
-            distance: display.distance,
-            delta: display.delta,
-            deltaClass: display.deltaClass,
-          });
+          UI.updateRouteInfo({ eta: display.eta, distance: display.distance, delta: display.delta, deltaClass: display.deltaClass });
           UI.renderWeatherTimeline(display.timelinePoints);
         }
       }
+      UI.snapTo(UI.SNAP_HALF);
     } else {
       // Start navigation
       if (!state.route) return;
       state.navigating = true;
-      btn.textContent = 'Stop';
-      btn.classList.add('active');
-      UI.snapTo(UI.SNAP_COLLAPSED);
-      // Zoom in to user's current position
+      const firstStep = state.route.steps && state.route.steps[0];
+      UI.startNavMode(firstStep);
       const pos = GeoModule.getPosition();
-      if (pos) {
-        MapModule.startFollowing(pos.lat, pos.lng);
-      } else {
-        // Fallback: zoom in to the route origin
-        MapModule.startFollowing(state.origin.lat, state.origin.lng);
-      }
+      if (pos) MapModule.startFollowing(pos.lat, pos.lng);
+      else MapModule.startFollowing(state.origin.lat, state.origin.lng);
     }
   }
 
   function handleClearRoute() {
-    // Stop navigation if active
     if (state.navigating) {
       state.navigating = false;
       MapModule.stopFollowing();
-      const navBtn = document.getElementById('btn-start-nav');
-      navBtn.textContent = 'Start';
-      navBtn.classList.remove('active');
+      UI.stopNavMode();
     }
 
     state.destination = null;
@@ -553,6 +545,72 @@ const App = (() => {
       const map = MapModule.getMap();
       GeoModule.showDot(map);
       MapModule.flyTo(state.origin.lat, state.origin.lng, 12);
+    }
+  }
+
+  // ── Share (outbound) ─────────────────────────────────────────
+  async function handleShareToggle() {
+    if (ShareModule.isSharing()) {
+      await ShareModule.stopSharing();
+      document.getElementById('btn-share').classList.remove('sharing');
+      UI.toast('Stopped sharing location', 'info', 2000);
+      return;
+    }
+
+    if (!state.hasGps) {
+      UI.toast('Enable location to share', 'error');
+      return;
+    }
+
+    const shareUrl = await ShareModule.startSharing(() => GeoModule.getPosition());
+    document.getElementById('btn-share').classList.add('sharing');
+
+    const result = await ShareModule.sendShareSheet(shareUrl);
+    if (result === 'copied') UI.toast('Link copied — send it to share your live location', 'info', 4000);
+    else if (result === 'cancelled') {
+      await ShareModule.stopSharing();
+      document.getElementById('btn-share').classList.remove('sharing');
+    }
+  }
+
+  // ── Track (inbound) ──────────────────────────────────────────
+  let trackedMarker = null;
+
+  function startTracking(token) {
+    document.getElementById('tracking-banner').classList.remove('hidden');
+    ShareModule.startTracking(token, handleTrackUpdate);
+  }
+
+  function handleTrackUpdate(pos, status) {
+    const map = MapModule.getMap();
+    if (!map) return;
+
+    if (!pos || status === 'expired') {
+      UI.toast('Live location session ended', 'info', 3000);
+      handleStopTracking();
+      return;
+    }
+
+    const ago = Math.round((Date.now() / 1000) - pos.updated_at);
+    document.getElementById('tracking-label').textContent =
+      ago < 10 ? 'Live location' : `Updated ${ago}s ago`;
+
+    if (!trackedMarker) {
+      const icon = L.divIcon({ className: 'tracked-dot', iconSize: [18, 18], iconAnchor: [9, 9] });
+      trackedMarker = L.marker([pos.lat, pos.lng], { icon, zIndexOffset: 900 }).addTo(map);
+    } else {
+      trackedMarker.setLatLng([pos.lat, pos.lng]);
+    }
+
+    if (!state.hasGps) MapModule.flyTo(pos.lat, pos.lng, 15);
+  }
+
+  function handleStopTracking() {
+    ShareModule.stopTracking();
+    document.getElementById('tracking-banner').classList.add('hidden');
+    if (trackedMarker) {
+      MapModule.getMap()?.removeLayer(trackedMarker);
+      trackedMarker = null;
     }
   }
 
