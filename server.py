@@ -9,17 +9,27 @@ Relay:   POST /location/{token}  → update position
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import time
 import os
+import re
 
 app = FastAPI()
+ALLOWED_ORIGINS = (
+    [origin.strip() for origin in os.getenv("ALLOWED_ORIGINS", "").split(",") if origin.strip()]
+    or [
+        "https://weathermap.michaelwmartinjr.com",
+        "http://localhost:8282",
+        "http://127.0.0.1:8282",
+    ]
+)
+TOKEN_RE = re.compile(r"^[a-f0-9]{24}$")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
+    allow_headers=["Content-Type"],
 )
 
 store: dict[str, dict] = {}
@@ -27,15 +37,19 @@ TTL = 300  # 5 min expiry with no update
 
 
 class LocationUpdate(BaseModel):
-    lat: float
-    lng: float
-    acc: float = 0.0
+    lat: float = Field(ge=-90, le=90)
+    lng: float = Field(ge=-180, le=180)
+    acc: float = Field(default=0.0, ge=0, le=10000)
+
+
+def validate_token(token: str) -> None:
+    if not TOKEN_RE.fullmatch(token):
+        raise HTTPException(400, "Invalid token")
 
 
 @app.post("/location/{token}")
 def update_location(token: str, body: LocationUpdate):
-    if len(token) > 64:
-        raise HTTPException(400, "Invalid token")
+    validate_token(token)
     now = time.time()
     store[token] = {
         "lat": body.lat, "lng": body.lng, "acc": body.acc,
@@ -49,6 +63,7 @@ def update_location(token: str, body: LocationUpdate):
 
 @app.get("/location/{token}")
 def get_location(token: str):
+    validate_token(token)
     entry = store.get(token)
     if not entry or entry["expires_at"] < time.time():
         raise HTTPException(404, "Session not found or expired")
@@ -60,6 +75,7 @@ def get_location(token: str):
 
 @app.delete("/location/{token}")
 def stop_sharing(token: str):
+    validate_token(token)
     store.pop(token, None)
     return {"ok": True}
 

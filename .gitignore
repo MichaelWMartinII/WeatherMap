@@ -2,3 +2,6 @@
 *.log
 .env
 node_modules/
+.server.pid
+__pycache__/
+*.pyc
