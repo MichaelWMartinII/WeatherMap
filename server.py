@@ -19,6 +19,9 @@ ALLOWED_ORIGINS = (
     [origin.strip() for origin in os.getenv("ALLOWED_ORIGINS", "").split(",") if origin.strip()]
     or [
         "https://weathermap.michaelwmartinjr.com",
+        # The static app is moving to Cloudflare Pages; it calls this relay
+        # cross-origin from there.
+        "https://weathermap-baq.pages.dev",
         "http://localhost:8282",
         "http://127.0.0.1:8282",
     ]
@@ -85,5 +88,7 @@ def health():
     return {"ok": True, "sessions": len(store)}
 
 
-# Serve static files last so API routes take priority
-app.mount("/", StaticFiles(directory=os.path.dirname(__file__), html=True), name="static")
+# Serve static files last so API routes take priority. Only public/ is served:
+# mounting the repo root exposed server.py, logs, and .git.
+PUBLIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "public")
+app.mount("/", StaticFiles(directory=PUBLIC_DIR, html=True), name="static")

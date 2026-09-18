@@ -54,11 +54,11 @@ No npm. No build step. All dependencies via CDN.
 
 ```bash
 # Any static file server works
-python3 -m http.server 8080
+python3 -m http.server 8080 --directory public
 # then open http://localhost:8080
 ```
 
-Or just open `index.html` directly in a browser. The service worker requires a server origin for full PWA functionality.
+Or just open `public/index.html` directly in a browser. The service worker requires a server origin for full PWA functionality.
 
 ---
 
@@ -77,6 +77,8 @@ Or just open `index.html` directly in a browser. The service worker requires a s
 ## Project Structure
 
 ```
+server.py           Static files (public/ only) + live location relay
+public/             Everything the browser loads
 index.html          App shell
 manifest.json       PWA manifest
 sw.js               Service worker (offline + caching)
